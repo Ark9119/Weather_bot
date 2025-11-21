@@ -1,0 +1,9 @@
+aiogram==3.22.0
+aiohttp==3.12.15
+annotated-types==0.7.0
+asyncio==4.0.0
+flake8==7.1.1
+frozenlist==1.8.0
+pyflakes==3.2.0
+pyTelegramBotAPI==4.22.1
+python-dotenv==1.0.1
