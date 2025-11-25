@@ -64,15 +64,15 @@ def mapping_weather_for_now(city, forecast):
 def weather_emoji_status(rain_chance, cloud):
     # Определяем состояние погоды для эмодзи
     if rain_chance > 50:
-        weather_emoji = "🌧️"
-        weather_status = "Дождь"
+        weather_emoji = '🌧️'
+        weather_status = 'Дождь'
     elif cloud > 70:
-        weather_emoji = "☁️"
-        weather_status = "Облачно"
+        weather_emoji = '☁️'
+        weather_status = 'Облачно'
     elif cloud > 30:
-        weather_emoji = "⛅"
-        weather_status = "Переменная облачность"
+        weather_emoji = '⛅'
+        weather_status = 'Переменная облачность'
     else:
-        weather_emoji = "☀️"
-        weather_status = "Ясно"
+        weather_emoji = '☀️'
+        weather_status = 'Ясно'
     return weather_emoji, weather_status
