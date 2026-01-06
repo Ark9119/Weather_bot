@@ -15,10 +15,12 @@ def mapping_weather_for_days(city, forecast):
     clouds = forecast['cloud']
     humidity = forecast['humidity']
     rain_chance = forecast['chance_of_rain']
+    chance_of_snow = forecast['chance_of_snow']
 
     avg_cloud = sum(clouds) / len(clouds)
     avg_humidity = sum(humidity) / len(humidity)
     max_rain_chance = max(rain_chance)
+    max_chance_of_snow = max(chance_of_snow)
 
     text = (
         f'По Вашему запросу: {user_city}\n'
@@ -29,6 +31,7 @@ def mapping_weather_for_days(city, forecast):
         f'☁️  Облачность: {avg_cloud:.0f}%\n'
         f'💧 Влажность: {avg_humidity:.0f}%\n'
         f'🌧  Вероятность дождя: {max_rain_chance:.0f}%\n'
+        f'❄️  Вероятность снега: {max_chance_of_snow:.0f}%\n'
     )
     return text
 
@@ -39,33 +42,41 @@ def mapping_weather_for_now(city, forecast):
     found_country = forecast['found_country']
     found_city = forecast['found_city']
     date = forecast['date']
+    now = datetime.now().time().strftime('%H:%M')
     date_obj = datetime.strptime(date, '%Y-%m-%d')
     formatted_date = date_obj.strftime('%d.%m.%Y')
     temp_c = forecast['temp_c']
     cloud = forecast['cloud']
     humidity = forecast['humidity']
     rain_chance = forecast['chance_of_rain']
+    chance_of_snow = forecast['chance_of_snow']
 
-    weather_emoji, weather_status = weather_emoji_status(rain_chance, cloud)
+    weather_emoji, weather_status = weather_emoji_status(
+        rain_chance, chance_of_snow, cloud
+    )
 
     text = (
         f'По Вашему запросу: {user_city}\n'
         f'Найден город {found_city} в {found_country}.\n'
-        f'📅 {formatted_date}\n'
+        f'📅 {formatted_date} {now}\n'
         f'🌡  Температура: {temp_c:.1f}°C\n'
         f'☁️  Облачность: {cloud}%\n'
         f'💧 Влажность: {humidity}%\n'
         f'🌧  Вероятность дождя: {rain_chance}%\n'
+        f'❄️  Вероятность снега: {chance_of_snow}%\n'
         f'📊 Состояние: {weather_emoji} {weather_status}'
     )
     return text
 
 
-def weather_emoji_status(rain_chance, cloud):
+def weather_emoji_status(rain_chance, chance_of_snow, cloud):
     # Определяем состояние погоды для эмодзи
     if rain_chance > 50:
         weather_emoji = '🌧️'
         weather_status = 'Дождь'
+    elif chance_of_snow > 50:
+        weather_emoji = '❄️'
+        weather_status = 'Снег'
     elif cloud > 70:
         weather_emoji = '☁️'
         weather_status = 'Облачно'
