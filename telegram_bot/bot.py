@@ -16,6 +16,7 @@ from response_transformation import (
     mapping_weather_for_now
 )
 
+
 load_dotenv()
 
 TOKEN = os.getenv('TOKEN_TELEGRAM')
@@ -23,6 +24,7 @@ bot = Bot(token=str(TOKEN))
 dp = Dispatcher()
 router = Router()
 dp.include_router(router)
+AUTH_SERVICE_URL = os.getenv('AUTH_SERVICE_URL', 'http://127.0.0.1:8002')
 
 
 class WeatherStates(StatesGroup):
@@ -88,28 +90,141 @@ async def make_api_request(
                 raise Exception(f'Сервис недоступен: {error_msg}')
 
 
+async def get_username_from_user_id(user_id: int) -> str:
+    """
+    Генерация username для Telegram пользователя.
+    Используется формат telegram_{user_id} для уникальности.
+    """
+    return f"telegram_{user_id}"
+
+
 async def get_user_city(user_id: int):
-    """Получение города пользователя"""
-    api_url = f'http://127.0.0.1:8000/city/{user_id}/'
-    data = await make_api_request(api_url, method='GET')
-    return data.get('city')
+    """
+    Получение города пользователя из weather_auth по Telegram user_id.
+    Args:
+        user_id: ID пользователя из Telegram (message.chat.id)
+    Returns:
+        str | None: Название города или None, если пользователь не найден
+    """
+    # Генерируем username для пользователя
+    username = await get_username_from_user_id(user_id)
+    # Получаем город из weather_auth
+    api_url = f'{AUTH_SERVICE_URL}/users/{username}/city'
+    try:
+        data = await make_api_request(api_url, method='GET')
+        if data:
+            return data.get('city')
+    except Exception as e:
+        print(f"Ошибка при получении города из weather_auth: {e}")  # TODO
+    return None
+
+
+async def register_user_in_auth_service(user_id: int, city: str) -> bool:
+    """
+    Регистрация пользователя в weather_auth.
+    Args:
+        user_id: ID пользователя из Telegram
+        city: Название города пользователя
+    Returns:
+        bool: True если регистрация успешна, False в противном случае
+    """
+    username = await get_username_from_user_id(user_id)
+    # Используем user_id как временный пароль (в продакшене лучше генерировать)
+    password = str(user_id)
+    api_url = f'{AUTH_SERVICE_URL}/auth/register'
+    payload = {
+        'username': username,
+        'password': password,
+        'city': city
+    }
+    try:
+        data = await make_api_request(api_url, payload, method='POST')
+        return data is not None
+    except Exception as e:
+        print(f"Ошибка при регистрации в weather_auth: {e}")
+        return False
+
+
+async def update_user_city_in_auth_service(user_id: int, city: str) -> bool:
+    """
+    Обновление города пользователя в weather_auth.
+    Для этого нужно сначала получить токен.
+    """
+    username = await get_username_from_user_id(user_id)
+    password = str(user_id)
+    # 1. Получаем токен
+    login_url = f'{AUTH_SERVICE_URL}/auth/login'
+    login_payload = {
+        'username': username,
+        'password': password
+    }
+    try:
+        # Получаем токен
+        login_data = await make_api_request(
+            login_url, login_payload, method='POST'
+        )
+        if not login_data or 'access_token' not in login_data:
+            return False
+        token = login_data['access_token']
+        # 2. Обновляем город с токеном
+        update_url = f'{AUTH_SERVICE_URL}/users/me/city'
+        update_payload = {'city': city}
+        async with aiohttp.ClientSession() as session:
+            async with session.put(
+                update_url,
+                json=update_payload,
+                headers={'Authorization': f'Bearer {token}'}
+            ) as response:
+                if response.status == 200:
+                    return True
+                else:
+                    error_text = await response.text()
+                    print(
+                        f'Ошибка при обновлении города: {response.status} '
+                        f'- {error_text}'
+                    )
+                    return False
+    except Exception as e:
+        print(f"Ошибка при обновлении города пользователя: {e}")
+        return False
 
 
 async def save_user_city(user_id: int, city: str | None):
-    """Сохраняет город для пользователя"""
-    api_url = 'http://127.0.0.1:8000/city/'
-    payload = {'city': city, 'user': user_id}
-    return await make_api_request(api_url, payload)
+    """
+    Сохранение города пользователя в weather_auth.
+    Если пользователь не существует, сначала регистрирует его.
+    """
+    if not city:
+        raise ValueError("Город не может быть пустым")
+    # Проверяем, существует ли пользователь
+    existing_city = await get_user_city(user_id)
+    if existing_city is None:
+        # Пользователь не существует, регистрируем его
+        success = await register_user_in_auth_service(user_id, city)
+        if not success:
+            raise ValueError("Не удалось зарегистрировать пользователя")
+    else:
+        # Пользователь существует, обновляем город
+        success = await update_user_city_in_auth_service(user_id, city)
+        if not success:
+            raise ValueError("Не удалось обновить город пользователя")
 
 
 async def get_weather_data(user_id: int, endpoint: str, days: int):
-    """Получает данные о погоде"""
+    """
+    Получает данные о погоде.
+    Теперь использует username вместо user_id для запроса к Weather API.
+    """
+    # Генерируем username для пользователя
+    username = await get_username_from_user_id(user_id)
+    # Weather API теперь ожидает username, а не user_id
     api_url = f'http://127.0.0.1:8000/weather/{endpoint}/'
     payload = {
-        'user': user_id,
+        'user': username,  # Теперь передаем username, а не user_id
         'days': days
     }
     data = await make_api_request(api_url, payload)
+    # data = await make_api_request_with_token(api_url, payload)
     city = data.get('city')
     forecast = data.get('forecast')
     return city, forecast
@@ -119,8 +234,8 @@ async def get_weather_data(user_id: int, endpoint: str, days: int):
 @router.message(F.text == 'Старт')
 async def start_cmd(message: types.Message, state: FSMContext):
     """
-    Команда старт. Проверяет по ID пользователя, если его нет в базе апи
-    - просит ввести город, если есть - здоровается
+    Команда старт. Проверяет пользователя в weather_auth,
+    если его нет - просит ввести город.
     """
     user_id = message.chat.id
     city = await get_user_city(user_id)
@@ -146,12 +261,15 @@ async def start_cmd(message: types.Message, state: FSMContext):
 @router.message(WeatherStates.waiting_city)
 async def process_city(message: types.Message, state: FSMContext):
     city = message.text
-    user_data = await state.get_data()
-    user_id = user_data.get('user_id', message.chat.id)
+    # user_data = await state.get_data()
+    # user_id = user_data.get('user_id', message.chat.id)
+    user_id = message.chat.id
 
     try:
-        data = await save_user_city(user_id, city)
-        saved_city = data.get('city')
+        await save_user_city(user_id, city)
+        # data = await save_user_city(user_id, city)
+        # saved_city = data.get('city')
+        saved_city = await get_user_city(user_id)
         await message.answer(
             f'Город {saved_city} успешно сохранен!',
             reply_markup=main_menu_keyboard
