@@ -1,0 +1,10 @@
+venv_for_weather_bot/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.env
+Dockerfile

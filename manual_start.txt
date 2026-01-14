@@ -1,0 +1,13 @@
+Из /Weather_bot/telegram_bot
+
+собрать образ
+
+docker build -t weather_bot:latest -f ./telegram_bot/Dockerfile .
+
+запустить контейнер
+
+docker run -d \
+  --name weather_bot \
+  --env-file .env \
+  --rm \
+  weather_bot:latest
