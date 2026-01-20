@@ -1,0 +1,12 @@
+services:
+  weather_bot:
+    build:
+      context: .  # Корень проекта
+      dockerfile: ./telegram_bot/Dockerfile
+    image: weather_bot:latest
+    container_name: weather_bot
+    env_file: .env  # Обязательно создайте этот файл!
+    restart: unless-stopped
+    # depends_on:
+    #   - weather_api  # Убедитесь, что API запущен первым
+    #   - auth_service  # Ваш сервис авторизации

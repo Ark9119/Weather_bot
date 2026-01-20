@@ -24,6 +24,7 @@ bot = Bot(token=str(TOKEN))
 dp = Dispatcher()
 router = Router()
 dp.include_router(router)
+WEATHER_SERVICE_URL = os.getenv('WEATHER_SERVICE_URL', 'http://127.0.0.1:8001')
 AUTH_SERVICE_URL = os.getenv('AUTH_SERVICE_URL', 'http://127.0.0.1:8002')
 
 
@@ -218,7 +219,8 @@ async def get_weather_data(user_id: int, endpoint: str, days: int):
     # Генерируем username для пользователя
     username = await get_username_from_user_id(user_id)
     # Weather API теперь ожидает username, а не user_id
-    api_url = f'http://127.0.0.1:8000/weather/{endpoint}/'
+    # api_url = f'http://127.0.0.1:8000/weather/{endpoint}/'
+    api_url = f'{WEATHER_SERVICE_URL}/weather/{endpoint}/'
     payload = {
         'user': username,  # Теперь передаем username, а не user_id
         'days': days
