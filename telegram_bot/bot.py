@@ -107,9 +107,7 @@ async def get_user_city(user_id: int):
     Returns:
         str | None: Название города или None, если пользователь не найден
     """
-    # Генерируем username для пользователя
     username = await get_username_from_user_id(user_id)
-    # Получаем город из weather_auth
     api_url = f'{AUTH_SERVICE_URL}/users/{username}/city'
     try:
         data = await make_api_request(api_url, method='GET')
@@ -130,7 +128,6 @@ async def register_user_in_auth_service(user_id: int, city: str) -> bool:
         bool: True если регистрация успешна, False в противном случае
     """
     username = await get_username_from_user_id(user_id)
-    # Используем user_id как временный пароль (в продакшене лучше генерировать)
     password = str(user_id)
     api_url = f'{AUTH_SERVICE_URL}/auth/register'
     payload = {
@@ -153,21 +150,18 @@ async def update_user_city_in_auth_service(user_id: int, city: str) -> bool:
     """
     username = await get_username_from_user_id(user_id)
     password = str(user_id)
-    # 1. Получаем токен
     login_url = f'{AUTH_SERVICE_URL}/auth/login'
     login_payload = {
         'username': username,
         'password': password
     }
     try:
-        # Получаем токен
         login_data = await make_api_request(
             login_url, login_payload, method='POST'
         )
         if not login_data or 'access_token' not in login_data:
             return False
         token = login_data['access_token']
-        # 2. Обновляем город с токеном
         update_url = f'{AUTH_SERVICE_URL}/users/me/city'
         update_payload = {'city': city}
         async with aiohttp.ClientSession() as session:
@@ -214,19 +208,15 @@ async def save_user_city(user_id: int, city: str | None):
 async def get_weather_data(user_id: int, endpoint: str, days: int):
     """
     Получает данные о погоде.
-    Теперь использует username вместо user_id для запроса к Weather API.
+    Использует username вместо user_id для запроса к Weather API.
     """
-    # Генерируем username для пользователя
     username = await get_username_from_user_id(user_id)
-    # Weather API теперь ожидает username, а не user_id
-    # api_url = f'http://127.0.0.1:8000/weather/{endpoint}/'
     api_url = f'{WEATHER_SERVICE_URL}/weather/{endpoint}/'
     payload = {
-        'user': username,  # Теперь передаем username, а не user_id
+        'user': username,
         'days': days
     }
     data = await make_api_request(api_url, payload)
-    # data = await make_api_request_with_token(api_url, payload)
     city = data.get('city')
     forecast = data.get('forecast')
     return city, forecast
@@ -263,14 +253,10 @@ async def start_cmd(message: types.Message, state: FSMContext):
 @router.message(WeatherStates.waiting_city)
 async def process_city(message: types.Message, state: FSMContext):
     city = message.text
-    # user_data = await state.get_data()
-    # user_id = user_data.get('user_id', message.chat.id)
     user_id = message.chat.id
 
     try:
         await save_user_city(user_id, city)
-        # data = await save_user_city(user_id, city)
-        # saved_city = data.get('city')
         saved_city = await get_user_city(user_id)
         await message.answer(
             f'Город {saved_city} успешно сохранен!',
